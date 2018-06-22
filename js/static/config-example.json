@@ -1,0 +1,8 @@
+{
+    "user": {
+        "email": "YourFirebaseLogin@email.com",
+        "password": "YourPasswordToLogin"
+    },
+    "uuid": "GenerateAUUIDForEachKiln",
+    "name": "NameOfKiln(Ember!)"
+}

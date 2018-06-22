@@ -1,0 +1,22 @@
+{
+  "name": "smartkiln",
+  "version": "2.0.0",
+  "description": "Smart IoT kiln controller",
+  "main": "app.js",
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "errorhandler": "^1.5.0",
+    "express": "^4.16.3",
+    "firebase": "^4.12.1",
+    "localtunnel": "^1.9.0",
+    "max31855": "git+https://github.com/ZachJMoore/max31855.git",
+    "node-fetch": "^2.1.2",
+    "onoff": "^2.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Zach Moore",
+  "license": "MIT"
+}
