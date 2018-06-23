@@ -33,7 +33,7 @@ class PID{
                 } else if (self.kiln.temp < self.target && self.kiln.checkRelays() !== 1){
                     self.kiln.setRelaysOn()
                 }
-                console.log("temp", self.kiln.temp, " | ", "target", self.target)
+                // console.log("temp", self.kiln.temp, " | ", "target", self.target)
             }, 1000)
 
         }
@@ -58,6 +58,10 @@ class Kiln{
         this.init = ()=>{
 
             let self = this;
+
+            // Make sure Relays are all turned off by default
+
+            this.setRelaysOff()
 
             // Init PID
 
@@ -211,11 +215,9 @@ class Kiln{
 
                 setTimeout(()=>{
                     if (!this.isFiring && !this.controller.isRunning) {
-                        console.log("StopFiring: Succesfull")
-                        resolve()
+                        resolve("StopFiring: Succesfull")
                     } else {
-                        console.log("StopFiring: Unseccesfull")
-                        reject()
+                        reject("StopFiring: Unseccesfull")
                     }
                 }, 2000)
                 
@@ -275,6 +277,7 @@ class Kiln{
                 let timeout = setTimeout(()=>{
                     if (self.fireScheduleInstance.next().done){
                          self.controller.stopPID()
+                         self.stopFiring().then(console.log).catch(console.log)
                          console.log("Firing Completed")
                     }
                 }, (secondsNeeded * 1000) + (ramp.hold * 60 * 60 * 1000))
