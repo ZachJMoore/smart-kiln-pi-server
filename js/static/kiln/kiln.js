@@ -3,214 +3,291 @@ const Gpio = require('onoff').Gpio;
 const relayOne = new Gpio(27, 'out');
 const thermoSensor = new max31855();
 const userDB = require("../firebase/firebaseDB")
-const basicBisque = require("../../basicBisque")
-const fs = require("fs")
 
+class PID{
+    constructor(startingTemp, targetKiln){
+        this.target = startingTemp;
+        this.kiln = targetKiln
+        this.isRunning = false
+        this.stopPID = ()=>{
+            clearInterval(this.holdTargetInterval)
+            this.isRunning = false
+            this.kiln.setRelaysOff()
+        }
 
-let kiln = {
-    temp: 0,
-    isFiring: false,
-    firingProgress: 0,
-    currentSchedule: {name: "No Current Schedule", default: true},
-    tempLog: [],
-    getTemp: () => {
-        return new Promise((resolve, reject) => {
-            thermoSensor.readTempC((temp) =>{
-                //if invalid reading, reject
-                if (isNaN(temp)) {
-                    let error = {
-                        error: true,
-                        message: "thermocouple may be broken or not attached"
-                    }
-                    console.error(error.message);
-                    reject(error);
-                } else {
-                    //else, resolve temperature converted to fahrenheit
-                    let tempF = ((temp * 1.8) + 32).toFixed(2)
-                    resolve(tempF)
-                }
+        this.startPID = ()=>{
+            this.isRunning = true;
+            clearInterval(this.holdTargetInterval)
+            this.holdTarget()
+        }
 
-            })
-        })
-    },
-    getPackage: ()=>{
-        return new Promise((resolve, reject)=>{
-            kiln.getTemp().then(temp=>{
-                let package = {
-                    temp: temp,
-                    firingProgress: kiln.firingProgress,
-                    isFiring: kiln.isFiring,
-                    currentSchedule: kiln.currentSchedule,
-                    tempLog: kiln.tempLog
+        this.setTarget = (target, override = false)=>{
+            override ? this.target = target : this.target = (((this.target * 1000) + (target * 1000)) / 1000).toFixed(2)
+        }
+
+        this.holdTarget = ()=>{
+            let self = this;
+            this.holdTargetInterval = setInterval(()=>{
+                if (self.kiln.temp > self.target && self.kiln.checkRelays() !== 0){
+                    self.kiln.setRelaysOff()
+                } else if (self.kiln.temp < self.target && self.kiln.checkRelays() !== 1){
+                    self.kiln.setRelaysOn()
                 }
-                resolve(package)
-            }).catch(err=>{
-                let package = {
-                    error: err,
-                    isFiring: kiln.isFiring,
-                    tempLog: kiln.tempLog
-                }
-                reject(package)
-            })
-        })
-    },
-    setRelayOn: (relay = relayOne) => {
-        relay.writeSync(1);
-        console.log(`Changing relay value. New value is ${relay.readSync()}`);
-    },
-    setRelayOff: (relay = relayOne) => {
-        relay.writeSync(0);
-        console.log(`Changing relay value. New value is ${relay.readSync()}`);
-    },
-    readRelay: (relay = relayOne) =>{
-        return relay.readSync()
-    },
-    startFiring: (schedule)=>{
-        return new Promise((resolve, reject)=>{
-            kiln.isFiring = true;
-            kiln.currentSchedule = schedule
-            if (kiln.isFiring) {resolve()} else {reject()}
-        })
-    },
-    stopFiring: ()=>{
-        return new Promise((resolve, reject)=>{
-            kiln.isFiring = false;
-            if (!kiln.isFiring) {resolve()} else {reject()}
-        })
-        
+                console.log("temp", self.kiln.temp, " | ", "target", self.target)
+            }, 1000)
+
+        }
+
     }
 }
 
-setInterval(()=>{
-    kiln.firingProgress++
-}, 20000)
+let placeholderSchedule = {
+    name: "No Current Schedule"
+}
 
-let persistentTempLog = []
-let persistentTempLogInterval = setInterval(()=>{
-    kiln.getTemp().then((temp)=>{
-        //if its not 12 hours worth of time keep adding to it
-        if (persistentTempLog.length < 72){
-            persistentTempLog.unshift(temp)
-        } else { //otherwise update the database and start over
-            userDB.updatePersistentLog(persistentTempLog)
-            console.log(new Date() + ": persistent temp log uploaded to database")
-            persistentTempLog = []
+class Kiln{
+    constructor(relays){
+        this.temp = 0
+        this.isFiring = false;
+        this.firingProgress = 0;
+        this.currentSchedule = {...placeholderSchedule}
+        this.tempLog = []
+        this.controller = null;
+        this.relays = relays;
+
+        this.init = ()=>{
+
+            let self = this;
+
+            // Init PID
+
+            this.controller = new PID(this.temp, this)
+
+            // Keep a log of the past 12 hours
+
+            this.persistentTempLog = []
+            this.persistentTempLogInterval = setInterval(()=>{
+                self.getTemp().then((temp)=>{
+                    //if its not 12 hours worth of time keep adding to it
+                    if (self.persistentTempLog.length < 72){
+                        self.persistentTempLog.unshift(temp)
+                    } else { //otherwise update the database and start over
+                        userDB.updatePersistentLog(persistentTempLog)
+                        console.log(new Date() + ": persistent temp log uploaded to database")
+                        self.persistentTempLog = []
+                    }
+                }).catch(console.log)
+            }, 600000)
+
+           
+            // Update 1 hour temp log
+
+            if (this.tempLog.length === 0){ // ran immediately to make sure there is a starting temp
+                this.getTemp().then((temp)=>{
+                    this.tempLog = [temp]
+                }).catch(console.log)
+            }
+
+            this.tempLogInterval = setInterval(()=>{
+                self.getTemp().then(temp=>{
+
+                    let tempLog = self.tempLog.slice()
+                    
+                    if (tempLog.length < 12){
+                        tempLog.unshift(temp)
+                    } else {
+                        tempLog.unshift(temp)
+                        tempLog.pop()
+                    }
+
+                    self.tempLog = tempLog
+
+                }).catch(console.log)
+            }, 300000)
+
+            // continually update the temperature
+
+            if (this.temp === 0){
+                this.getTemp().then(temp=>{
+                    this.temp = temp
+                }).catch(console.log)
+            }
+            this.tempStateInterval = setInterval(()=>{
+                self.getTemp().then(temp=>{
+                    self.temp = temp
+                })
+            }, 1000)
+
         }
-    }).catch(console.log)
-}, 600000)
 
-
-kiln.getTemp().then(temp=>{
-    kiln.tempLog = [temp]
-})
-let tempLogInterval = setInterval(()=>{
-    kiln.getTemp().then(temp=>{
-        let tempLog = kiln.tempLog.slice()
-        if (!tempLog){
-            tempLog = [temp]
-        } else if (tempLog.length < 12){
-            tempLog.unshift(temp)
-            kiln.tempLog = tempLog
-        } else {
-            tempLog.unshift(temp)
-            tempLog.pop()
-            kiln.tempLog = tempLog
+        this.getTemp = ()=>{
+            return new Promise((resolve, reject) => {
+                thermoSensor.readTempC((temp) =>{
+                    //if invalid reading, reject
+                    if (isNaN(temp)) {
+                        let error = {
+                            error: true,
+                            message: "thermocouple may be broken or not attached"
+                        }
+                        console.error(error.message);
+                        reject(error);
+                    } else {
+                        //else, resolve temperature converted to fahrenheit
+                        let tempF = ((temp * 1.8) + 32).toFixed(2)
+                        resolve(tempF)
+                    }
+    
+                })
+            })
         }
-    })
-}, 300000)
 
+        this.getPackage = ()=>{
+            return new Promise((resolve, reject)=>{
+                if (this.temp !== 0){
+                    resolve({
+                        temp: this.temp,
+                        firingProgress: this.firingProgress,
+                        isFiring: this.isFiring,
+                        currentSchedule: this.currentSchedule,
+                        tempLog: this.tempLog
+                    })
+                } else {
+                    reject({
+                        temp: "Thermo Error",
+                        firingProgress: this.firingProgress,
+                        isFiring: this.isFiring,
+                        currentSchedule: this.currentSchedule,
+                        tempLog: this.tempLog
+                    })
+                }
+            })
+        }
 
-kiln.getTemp().then(temp=>{
-    kiln.temp = temp
-})
-let tempStateInterval = setInterval(()=>{
-    kiln.getTemp().then(temp=>{
-        kiln.temp = temp
-    })
-}, 1000)
+        this.setRelaysOn = () => {
+            this.relays.forEach(relay=>{
+                relay.writeSync(1);
+                console.log(`Changing relay value. New value is ${relay.readSync()}`);
+            })
+        }
 
+        this.setRelaysOff = () => {
+            this.relays.forEach(relay=>{
+                relay.writeSync(0);
+                console.log(`Changing relay value. New value is ${relay.readSync()}`);
+            })
+        }
 
+        this.checkRelays = () =>{
+            let sum = 0;
+            this.relays.forEach(relay=>{
+                sum += relay.readSync()
+            })
+            if (sum === this.relays.length){
+                return (1)
+            } else {
+                return (0)
+            }
+        }
 
-// class PID{
-//     constructor(startingTemp){
-//         this.target = startingTemp;
-//         this.shouldForceStop = false;
-//         this.forceStop = ()=>{
-//             this.shouldForceStop = true
-//             clearInterval(this.holdTargetInterval)
-//             kiln.isFiring = false;
-//         }
-//         this.startFiring = ()=>{
-//             this.shouldForceStop = false
-//             this.holdTarget()
-//             kiln.isFiring = true;
-//         }
-//         this.setTarget = (target, override = false)=>{
-//             override ? this.target = target : this.target = (((this.target * 1000) + (target * 1000)) / 1000).toFixed(2)
-//         }
-//         this.holdTarget = ()=>{
-//             let self = this;
-//             this.shouldForceStop = false
-//             clearInterval(this.holdTargetInterval)
-//             this.holdTargetInterval = setInterval(()=>{
-//                 if (kiln.temp > self.target){
-//                     kiln.setRelayOff()
-//                 } else if (kiln.temp < self.target){
-//                     kiln.setRelayOn()
-//                 }
+        this.startFiring = (schedule)=>{
+            return new Promise((resolve, reject)=>{
+                this.isFiring = true;
+                if ( typeof schedule.ramps === typeof ""){
+                    schedule.ramps = JSON.parse(schedule.ramps)
+                }
+                this.currentSchedule = schedule
+                this.fireScheduleInstance = this.fireSchedule(schedule)
+                this.fireScheduleInstance.next()
+
+                if (this.isFiring && this.controller.isRunning) {resolve()} else {reject()}
+            })
+        }
+
+        this.stopFiring = ()=>{
+            return new Promise((resolve, reject)=>{
+                this.isFiring = false;
+                this.currentSchedule = {...placeholderSchedule}
+                console.log("Sending: `stopFiring`")
+
+                setTimeout(()=>{
+                    if (!this.isFiring && !this.controller.isRunning) {
+                        console.log("StopFiring: Succesfull")
+                        resolve()
+                    } else {
+                        console.log("StopFiring: Unseccesfull")
+                        reject()
+                    }
+                }, 2000)
                 
-//                 if (self.shouldForceStop){
-//                     clearInterval(self.holdTargetInterval)
-//                     self.forceStop
-//                 }
-//                 console.log("temp", kiln.temp, " | ", "target", self.target)
-//             }, 1000)
-//         }
-//     }
-// }
+            })
+            
+        }
 
+        this.fireSchedule = function* (schedule){
+            if (!schedule){
+                return
+            }
+            
+            this.controller.setTarget(this.temp, true)
+            this.controller.startPID()
 
+            this.timeoutes = []
 
-// let fireSchedule = (function* (schedule = basicBisque){
-//     let controllerPID = new PID(kiln.temp)
-//     controllerPID.startFiring()
-//     for(let e = 0; e < schedule.length; e++){
-//         let ramp = schedule[e]
-//         console.log("Entering ramp", e+1)
-//         console.log("Target temperature is: ", ramp.target)
-//         let difference = ramp.target - kiln.temp;
-//         let hoursNeeded = (difference / ramp.rate);
-//         let minutesNeeded = hoursNeeded * 60
-//         let secondsNeeded = minutesNeeded * 60
-//         let risePerSecond = difference / secondsNeeded
-//         console.log(difference, "Difference")
-//         console.log(hoursNeeded, "hoursNeeded")
-//         console.log(minutesNeeded, "minutesNeeded")
-//         console.log(secondsNeeded, "secondsNeeded")
-//         console.log(risePerSecond, "rise per second")
-//         for (let i = 0; i < secondsNeeded; i++){
-//             setTimeout(()=>{
-//                 controllerPID.setTarget(risePerSecond)
-//             },1000*i)
-//         }
-//         setTimeout(()=>{
-//             let firingProgress = fireSchedule.next()
-//             if (firingProgress.done) controllerPID.forceStop()
-//         }, (secondsNeeded * 1000) + (ramp.hold * 60 * 60 * 1000))
-//         yield
-//     }
-// })()
+            let self = this;
 
+            for(let e = 0; e < schedule.ramps.length; e++){
+                let ramp = schedule.ramps[e]
+                console.log("Entering ramp", e+1)
+                console.log("Target temperature is: ", ramp.target)
 
+                let difference = ramp.target - self.temp;
+                let hoursNeeded = (difference / ramp.rate);
+                let minutesNeeded = hoursNeeded * 60
+                let secondsNeeded = minutesNeeded * 60
+                let risePerSecond = difference / secondsNeeded
+    
+                if (Math.sign(secondsNeeded) === -1){
+                    secondsNeeded = Math.abs(secondsNeeded)
+                    risePerSecond = -risePerSecond
+                    console.log("Converted to down ramp")
+                }
+    
+                console.log("Difference | ", difference)
+                console.log("hoursNeeded | ", hoursNeeded)
+                console.log("minutesNeeded | ", minutesNeeded)
+                console.log("secondsNeeded | ", secondsNeeded, )
+                console.log("rise per second | ", risePerSecond)
+    
+                for (let i = 0; i < secondsNeeded; i++){
+                    let timeout = setTimeout(()=>{
+                        self.controller.setTarget(risePerSecond)
+                        if (!self.isFiring){
+                            self.timeoutes.forEach(timeout=>{
+                                clearTimeout(timeout)
+                            })
+                            self.controller.stopPID()
+                            console.log("Firing Stopped")
+                        }
+                    },1000*i)
+                    self.timeoutes.push(timeout)
+                }
 
-// setTimeout(()=>{
-//     fireSchedule.next()
-// }, 2000)
+                let timeout = setTimeout(()=>{
+                    if (self.fireScheduleInstance.next().done){
+                         self.controller.stopPID()
+                         console.log("Firing Completed")
+                    }
+                }, (secondsNeeded * 1000) + (ramp.hold * 60 * 60 * 1000))
 
-// setInterval(()=>{
-//     kiln.getTemp().then((temp)=>{
-//         console.log("Temp", temp
-//     )})
-// }, 10000)
+                self.timeoutes.push(timeout)
 
-module.exports = kiln;
+                yield
+            }
+        }
+    }
+}
+
+let kiln = new Kiln([relayOne])
+kiln.init()
+
+module.exports = kiln
