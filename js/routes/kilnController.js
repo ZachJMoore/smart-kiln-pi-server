@@ -32,7 +32,6 @@ router.get("/get-package", authVerify, (req, res)=>{
 
 router.get("/stop-firing", authVerify, (req, res)=>{
     kiln.stopFiring().then(()=>{
-        console.log("Firing Stopped")
         res.send({message: "Firing stopped"})
     }).catch(()=>{
         res.status(503).send({message: "Unable to stop the firing"})
