@@ -32,6 +32,8 @@ in the root directory run in terminal the following to start the server
     $node js/server.js
 ```
 
-At the moment, this will only let you be able to check temperature from the web interface. Currently selecting a schedule and pressing start will only console log the recieved schedule. I have commented out the PID portion as it is not ready yet and needs more work. 
+~~At the moment, this will only let you be able to check temperature from the web interface. Currently selecting a schedule and pressing start will only console log the recieved schedule. I have commented out the PID portion as it is not ready yet and needs more work.~~
+
+The kiln object is now a class and has propper intergration for firing a schedule. Very little error handling has been added, but the ability to fire a schedule completely from the web interface is now supported.
 
 Help is very welcome, please feel free to make a pull request!
