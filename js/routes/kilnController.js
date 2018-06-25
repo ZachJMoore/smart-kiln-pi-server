@@ -51,9 +51,7 @@ router.post("/start-firing", authVerify, (req, res)=>{
         .catch(()=>{
             res.send({message: "Something went wrong turning the kiln on"})
         })
-        
     }
-    
 })
 
 module.exports = router;
