@@ -3,12 +3,14 @@ const Gpio = require('onoff').Gpio;
 const relayOne = new Gpio(27, 'out');
 const thermoSensor = new max31855();
 const userDB = require("../firebase/firebaseDB")
+const fs = require("fs")
 
 class PID{
-    constructor(startingTemp, targetKiln){
+    constructor(startingTemp, targetKiln, debug = false){
         this.target = startingTemp;
         this.kiln = targetKiln
         this.isRunning = false
+        this.debug = debug
         this.stopPID = ()=>{
             clearInterval(this.holdTargetInterval)
             this.isRunning = false
@@ -33,7 +35,9 @@ class PID{
                 } else if (self.kiln.temp < self.target && self.kiln.checkRelays() !== 1){
                     self.kiln.setRelaysOn()
                 }
-                // console.log("temp", self.kiln.temp, " | ", "target", self.target)
+
+                if (this.debug) console.log("temp", self.kiln.temp, " | ", "target", self.target)
+
             }, 1000)
 
         }
@@ -46,7 +50,7 @@ let placeholderSchedule = {
 }
 
 class Kiln{
-    constructor(relays){
+    constructor(relays, debug = false){
         this.temp = 0
         this.isFiring = false;
         this.firingProgress = 0;
@@ -54,6 +58,7 @@ class Kiln{
         this.tempLog = []
         this.controller = null;
         this.relays = relays;
+        this.debug = debug
 
         this.init = ()=>{
 
@@ -86,6 +91,8 @@ class Kiln{
            
             // Update 1 hour temp log
 
+            
+
             if (this.tempLog.length === 0){ // ran immediately to make sure there is a starting temp
                 this.getTemp().then((temp)=>{
                     this.tempLog = [temp]
@@ -95,7 +102,7 @@ class Kiln{
             this.tempLogInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
 
-                    let tempLog = self.tempLog.slice()
+                    let tempLog = this.tempLog.slice()
                     
                     if (tempLog.length < 12){
                         tempLog.unshift(temp)
@@ -103,8 +110,15 @@ class Kiln{
                         tempLog.unshift(temp)
                         tempLog.pop()
                     }
+                    this.tempLog = tempLog
 
-                    self.tempLog = tempLog
+                    this.fsLog.push(temp)
+                    let self = this
+                    fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
+                        if(err) {
+                            return console.log(err);
+                        }
+                    });
 
                 }).catch(console.log)
             }, 300000)
@@ -119,8 +133,25 @@ class Kiln{
             this.tempStateInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
                     self.temp = temp
-                })
+                }).catch(console.log)
             }, 1000)
+
+            // debug log on device
+
+            if (this.debug){
+                this.fsLog = []
+                this.fsLog.push(temp)
+                let self = this
+                let writeFsLog = ()=>{
+                    fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
+                        if(err) {
+                            return console.log(err);
+                        }
+                    });
+                }
+                writeFsLog()
+                this.fsLogInterval = setInterval(writeFsLog,60000)
+            }
 
         }
 
@@ -140,7 +171,6 @@ class Kiln{
                         let tempF = ((temp * 1.8) + 32).toFixed(2)
                         resolve(tempF)
                     }
-    
                 })
             })
         }
@@ -215,12 +245,11 @@ class Kiln{
 
                 setTimeout(()=>{
                     if (!this.isFiring && !this.controller.isRunning) {
-                        resolve("StopFiring: Succesfull")
+                        resolve("StopFiring: Successful")
                     } else {
-                        reject("StopFiring: Unseccesfull")
+                        reject("StopFiring: Unsuccessful")
                     }
                 }, 2000)
-                
             })
             
         }
