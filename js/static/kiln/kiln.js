@@ -81,17 +81,14 @@ class Kiln{
                     if (self.persistentTempLog.length < 72){
                         self.persistentTempLog.unshift(temp)
                     } else { //otherwise update the database and start over
-                        userDB.updatePersistentLog(persistentTempLog)
+                        userDB.updatePersistentLog(self.persistentTempLog)
                         console.log(new Date() + ": persistent temp log uploaded to database")
                         self.persistentTempLog = []
                     }
                 }).catch(console.log)
             }, 600000)
 
-           
             // Update 1 hour temp log
-
-            
 
             if (this.tempLog.length === 0){ // ran immediately to make sure there is a starting temp
                 this.getTemp().then((temp)=>{
@@ -103,7 +100,6 @@ class Kiln{
                 self.getTemp().then(temp=>{
 
                     let tempLog = this.tempLog.slice()
-                    
                     if (tempLog.length < 12){
                         tempLog.unshift(temp)
                     } else {
@@ -282,13 +278,14 @@ class Kiln{
                     risePerSecond = -risePerSecond
                     console.log("Converted to down ramp")
                 }
-    
-                console.log("Difference | ", difference)
-                console.log("hoursNeeded | ", hoursNeeded)
-                console.log("minutesNeeded | ", minutesNeeded)
-                console.log("secondsNeeded | ", secondsNeeded, )
-                console.log("rise per second | ", risePerSecond)
-    
+                if (this.debug){
+                    console.log("Difference | ", difference)
+                    console.log("hoursNeeded | ", hoursNeeded)
+                    console.log("minutesNeeded | ", minutesNeeded)
+                    console.log("secondsNeeded | ", secondsNeeded, )
+                    console.log("rise per second | ", risePerSecond)
+                }
+
                 for (let i = 0; i < secondsNeeded; i++){
                     let timeout = setTimeout(()=>{
                         self.controller.setTarget(risePerSecond)
