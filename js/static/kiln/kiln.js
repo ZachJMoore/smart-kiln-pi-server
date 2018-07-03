@@ -70,7 +70,7 @@ class Kiln{
 
             // Init PID
 
-            this.controller = new PID(this.temp, this)
+            this.controller = new PID(this.temp, this, this.debug)
 
             // Keep a log of the past 12 hours
 
@@ -108,13 +108,22 @@ class Kiln{
                     }
                     this.tempLog = tempLog
 
-                    this.fsLog.push(temp)
-                    let self = this
-                    fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
-                        if(err) {
-                            return console.log(err);
+                    // debug log on device
+
+                    if (this.debug){
+                        this.fsLog = []
+                        this.fsLog.push(temp)
+                        let self = this
+                        let writeFsLog = ()=>{
+                            fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
+                                if(err) {
+                                    return console.log(err);
+                                }
+                            });
                         }
-                    });
+                        writeFsLog()
+                        this.fsLogInterval = setInterval(writeFsLog,60000)
+                    }
 
                 }).catch(console.log)
             }, 300000)
@@ -131,23 +140,6 @@ class Kiln{
                     self.temp = temp
                 }).catch(console.log)
             }, 1000)
-
-            // debug log on device
-
-            if (this.debug){
-                this.fsLog = []
-                this.fsLog.push(temp)
-                let self = this
-                let writeFsLog = ()=>{
-                    fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
-                        if(err) {
-                            return console.log(err);
-                        }
-                    });
-                }
-                writeFsLog()
-                this.fsLogInterval = setInterval(writeFsLog,60000)
-            }
 
         }
 
@@ -247,14 +239,13 @@ class Kiln{
                     }
                 }, 2000)
             })
-            
         }
 
         this.fireSchedule = function* (schedule){
             if (!schedule){
                 return
             }
-            
+
             this.controller.setTarget(this.temp, true)
             this.controller.startPID()
 
@@ -272,7 +263,7 @@ class Kiln{
                 let minutesNeeded = hoursNeeded * 60
                 let secondsNeeded = minutesNeeded * 60
                 let risePerSecond = difference / secondsNeeded
-    
+
                 if (Math.sign(secondsNeeded) === -1){
                     secondsNeeded = Math.abs(secondsNeeded)
                     risePerSecond = -risePerSecond
@@ -316,7 +307,7 @@ class Kiln{
     }
 }
 
-let kiln = new Kiln([relayOne])
+let kiln = new Kiln([relayOne], true)
 kiln.init()
 
 module.exports = kiln
