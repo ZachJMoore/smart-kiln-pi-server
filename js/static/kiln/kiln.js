@@ -24,19 +24,29 @@ class PID{
         }
 
         this.setTarget = (target, override = false)=>{
-            override ? this.target = target : this.target = (((this.target * 1000) + (target * 1000)) / 1000).toFixed(2)
+            if (override){
+                this.target = target
+            } else {
+                this.target = ((this.target * 1000000) + (target * 1000000)) / 1000000
+            }
         }
 
         this.holdTarget = ()=>{
             let self = this;
             this.holdTargetInterval = setInterval(()=>{
-                if (self.kiln.temp > self.target && self.kiln.checkRelays() !== 0){
+
+                let kilnTemp = self.kiln.temp;
+                let target = self.target;
+
+                if (kilnTemp >= target && self.kiln.checkRelays() !== 0){
                     self.kiln.setRelaysOff()
-                } else if (self.kiln.temp < self.target && self.kiln.checkRelays() !== 1){
+                }
+
+                if (kilnTemp < target && self.kiln.checkRelays() !== 1){
                     self.kiln.setRelaysOn()
                 }
 
-                if (this.debug) console.log("temp", self.kiln.temp, " | ", "target", self.target)
+                if (this.debug) console.log("temp", kilnTemp, " | ", "target", target)
 
             }, 1000)
 
@@ -52,6 +62,7 @@ let placeholderSchedule = {
 class Kiln{
     constructor(relays, debug = false){
         this.temp = 0
+        this.tempAverage = [0, 0 ,0]
         this.isFiring = false;
         this.firingProgress = 0;
         this.currentSchedule = {...placeholderSchedule}
@@ -132,12 +143,24 @@ class Kiln{
 
             if (this.temp === 0){
                 this.getTemp().then(temp=>{
-                    this.temp = temp
+                    this.tempAverage.push(temp)
+                    this.tempAverage.shift()
+                    let average = 0;
+                    this.tempAverage.forEach(t=>{
+                        average += t
+                    })
+                    this.temp = parseFloat((average / this.tempAverage.length).toFixed(2))
                 }).catch(console.log)
             }
             this.tempStateInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
-                    self.temp = temp
+                    self.tempAverage.push(temp)
+                    self.tempAverage.shift()
+                    let average = 0;
+                    self.tempAverage.forEach(t=>{
+                        average += t
+                    })
+                    self.temp = parseFloat((average / self.tempAverage.length).toFixed(2))
                 }).catch(console.log)
             }, 1000)
 
@@ -156,7 +179,7 @@ class Kiln{
                         reject(error);
                     } else {
                         //else, resolve temperature converted to fahrenheit
-                        let tempF = ((temp * 1.8) + 32).toFixed(2)
+                        let tempF = parseFloat(((temp * 1.8) + 32).toFixed(2))
                         resolve(tempF)
                     }
                 })
@@ -188,14 +211,14 @@ class Kiln{
         this.setRelaysOn = () => {
             this.relays.forEach(relay=>{
                 relay.writeSync(1);
-                console.log(`Changing relay value. New value is ${relay.readSync()}`);
+                this.debug && console.log(`Changing relay value. New value is ${relay.readSync()}`);
             })
         }
 
         this.setRelaysOff = () => {
             this.relays.forEach(relay=>{
                 relay.writeSync(0);
-                console.log(`Changing relay value. New value is ${relay.readSync()}`);
+                this.debug && console.log(`Changing relay value. New value is ${relay.readSync()}`);
             })
         }
 
@@ -250,56 +273,72 @@ class Kiln{
             this.controller.startPID()
 
             this.timeoutes = []
+            this.intervals = []
 
             let self = this;
 
             for(let e = 0; e < schedule.ramps.length; e++){
                 let ramp = schedule.ramps[e]
-                console.log("Entering ramp", e+1)
-                console.log("Target temperature is: ", ramp.target)
 
-                let difference = ramp.target - self.temp;
-                let hoursNeeded = (difference / ramp.rate);
-                let minutesNeeded = hoursNeeded * 60
-                let secondsNeeded = minutesNeeded * 60
-                let risePerSecond = difference / secondsNeeded
+                let isDownRamp = false;
+                let difference = ramp.target - self.controller.target;
 
-                if (Math.sign(secondsNeeded) === -1){
-                    secondsNeeded = Math.abs(secondsNeeded)
-                    risePerSecond = -risePerSecond
-                    console.log("Converted to down ramp")
+                if (Math.sign(difference) === -1){
+                    this.debug && console.log("Converted to down ramp")
+                    isDownRamp = true;
+                    difference = Math.abs(difference)
                 }
+
+                let hoursNeeded = difference / ramp.rate;
+                let secondsNeeded = hoursNeeded * 60 * 60;
+                let millisecondsNeeded = secondsNeeded * 1000
+                let risePerSecond = difference / secondsNeeded;
+
+                if (isDownRamp){
+                    risePerSecond = -risePerSecond
+                }
+
                 if (this.debug){
+                    console.log("Entering ramp", e+1)
+                    console.log("Target temperature is: ", ramp.target)
                     console.log("Difference | ", difference)
                     console.log("hoursNeeded | ", hoursNeeded)
-                    console.log("minutesNeeded | ", minutesNeeded)
                     console.log("secondsNeeded | ", secondsNeeded, )
                     console.log("rise per second | ", risePerSecond)
                 }
 
-                for (let i = 0; i < secondsNeeded; i++){
-                    let timeout = setTimeout(()=>{
-                        self.controller.setTarget(risePerSecond)
-                        if (!self.isFiring){
-                            self.timeoutes.forEach(timeout=>{
-                                clearTimeout(timeout)
-                            })
-                            self.controller.stopPID()
-                            console.log("Firing Stopped")
-                        }
-                    },1000*i)
-                    self.timeoutes.push(timeout)
-                }
+                let stopKilnInterval = setInterval(()=>{
+                    if (!self.isFiring){
+                        self.intervals.forEach(clearInterval);
 
-                let timeout = setTimeout(()=>{
+                        self.timeoutes.forEach(clearTimeout)
+
+                        self.controller.stopPID()
+
+                        console.log("Firing Stopped")
+                    }
+                }, 2000)
+
+                let setTempInterval = setInterval(()=>{
+                    self.controller.setTarget(risePerSecond)
+                }, 1000)
+
+                let intervalTimeout = setTimeout(()=>{
+                    clearInterval(setTempInterval)
+                    self.controller.setTarget(ramp.target, true)
+                    self.debug && console.log(`Target reached. Holding for ${ramp.hold * 60} minutes`)
+                }, millisecondsNeeded)
+
+                let rampTimeout = setTimeout(()=>{
                     if (self.fireScheduleInstance.next().done){
                          self.controller.stopPID()
                          self.stopFiring().then(console.log).catch(console.log)
                          console.log("Firing Completed")
                     }
-                }, (secondsNeeded * 1000) + (ramp.hold * 60 * 60 * 1000))
+                }, millisecondsNeeded + (ramp.hold * 60 * 60 * 1000))
 
-                self.timeoutes.push(timeout)
+                self.intervals.push(setTempInterval, stopKilnInterval)
+                self.timeoutes.push(intervalTimeout, rampTimeout)
 
                 yield
             }
@@ -307,7 +346,7 @@ class Kiln{
     }
 }
 
-let kiln = new Kiln([relayOne], true)
+let kiln = new Kiln([relayOne])
 kiln.init()
 
 module.exports = kiln
