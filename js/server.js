@@ -19,7 +19,7 @@ let generateUUID = () => { // Public Domain/MIT
     });
 }
 
-let requestTunnel = (random)=>{
+let requestTunnel = (random = true)=>{
     return socketTunnel.connect("https://smartkiln.xyz", `${random ? generateUUID() : config.uuid}`, port)
 }
 
@@ -34,14 +34,14 @@ waitForLogin().then(()=>{
         })
         .catch((err)=>{
             console.log(err)
-            requestTunnel(true)
+            requestTunnel()
                 .then((url)=>{
                     console.log(url)
                     userDB.updateKiln(url)
                 })
                 .catch((err)=>{
                     console.log(err)
-                    requestTunnel(true)
+                    requestTunnel()
                         .then((url)=>{
                             console.log(url)
                             userDB.updateKiln(url)
