@@ -43,7 +43,7 @@ router.post("/start-firing", authVerify, (req, res)=>{
     if (!schedule) {
         res.send({message:"No schedule provided"})
     } else {
-        console.log(schedule)
+        console.log(schedule.name)
         kiln.startFiring(schedule)
         .then(()=>{
             res.send({message:`schedule ${schedule.name} started successfully`})

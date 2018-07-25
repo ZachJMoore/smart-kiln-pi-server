@@ -252,7 +252,7 @@ class Kiln{
             return new Promise((resolve, reject)=>{
                 this.isFiring = false;
                 this.currentSchedule = {...placeholderSchedule}
-                console.log("Sending: `stopFiring`")
+                this.debug && console.log("Sending: `stopFiring`")
 
                 setTimeout(()=>{
                     if (!this.isFiring && !this.controller.isRunning) {
@@ -315,7 +315,7 @@ class Kiln{
 
                         self.controller.stopPID()
 
-                        console.log("Firing Stopped")
+                        this.debug && console.log("Firing Stopped")
                     }
                 }, 2000)
 
@@ -333,7 +333,7 @@ class Kiln{
                     if (self.fireScheduleInstance.next().done){
                          self.controller.stopPID()
                          self.stopFiring().then(console.log).catch(console.log)
-                         console.log("Firing Completed")
+                         this.debug && console.log("Firing Completed")
                     }
                 }, millisecondsNeeded + (ramp.hold * 60 * 60 * 1000))
 

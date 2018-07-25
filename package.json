@@ -11,7 +11,14 @@
     "localtunnel": "^1.9.0",
     "max31855": "git+https://github.com/ZachJMoore/max31855.git",
     "node-fetch": "^2.1.2",
-    "onoff": "^2.0.0"
+    "onoff": "^2.0.0",
+    "is-valid-domain": "0.0.5",
+    "optimist": "^0.6.1",
+    "socket.io": "^2.1.0",
+    "socket.io-client": "^2.1.0",
+    "socket.io-stream": "^0.9.1",
+    "tldjs": "^2.3.1",
+    "uuid": "^3.2.1"
   },
   "devDependencies": {},
   "scripts": {
