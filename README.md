@@ -23,7 +23,7 @@ The thermocouple are screwed directly to the amp. Neutral/ground coming back fro
 Due to data caps on firebase, everyone must run their own version for now. Refer to <a href="https://github.com/ZachJMoore/smart-kiln-pi-server/blob/master/js/static/firebase/firebase-example.js">firebase-example</a> for setting api keys with your own firebase project, and then rename your edited file to exactly "firebase.js" in the firebase folder inorder to keep relative paths correct.
 Also, in the static folder, config needs to be filled in with your login credentials for an account on your firebase. Refer to <a href="https://github.com/ZachJMoore/smart-kiln-pi-server/blob/master/js/static/config-example.json">config-example</a> for format. Then rename exactly to config.json in the same folder.
 
-Until otherwise decided. My server smartkiln.xyz can be used for proxying requests and is open for people to use within reason (credits to <a href="https://github.com/ericbarch/socket-tunnel">this</a> project for the proxy software). Everything is setup to run correctly if the above steps were followed.
+Until otherwise decided. My server at proxy.zachjmoore.com can be used for proxying requests and is open for people to use within reason (credits to <a href="https://github.com/ericbarch/socket-tunnel">this</a> project for the proxy software). Everything is setup to run correctly if the above steps were followed.
 
 in the root directory run in terminal the following to start the server
 
