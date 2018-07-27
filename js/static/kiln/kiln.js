@@ -96,7 +96,7 @@ class Kiln{
                         console.log(new Date() + ": persistent temp log uploaded to database")
                         self.persistentTempLog = []
                     }
-                }).catch(console.log)
+                }).catch(()=>{})
             }, 600000)
 
             // Update 1 hour temp log
@@ -104,7 +104,7 @@ class Kiln{
             if (this.tempLog.length === 0){ // ran immediately to make sure there is a starting temp
                 this.getTemp().then((temp)=>{
                     this.tempLog = [temp]
-                }).catch(console.log)
+                }).catch(()=>{})
             }
 
             this.tempLogInterval = setInterval(()=>{
@@ -136,7 +136,7 @@ class Kiln{
                         this.fsLogInterval = setInterval(writeFsLog,60000)
                     }
 
-                }).catch(console.log)
+                }).catch(()=>{})
             }, 300000)
 
             // continually update the temperature
@@ -150,7 +150,7 @@ class Kiln{
                         average += t
                     })
                     this.temp = parseFloat((average / this.tempAverage.length).toFixed(2))
-                }).catch(console.log)
+                }).catch(()=>{})
             }
             this.tempStateInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
@@ -161,7 +161,7 @@ class Kiln{
                         average += t
                     })
                     self.temp = parseFloat((average / self.tempAverage.length).toFixed(2))
-                }).catch(console.log)
+                }).catch(()=>{})
             }, 1000)
 
         }
@@ -175,7 +175,7 @@ class Kiln{
                             error: true,
                             message: "thermocouple may be broken or not attached"
                         }
-                        console.error(error.message);
+                        this.debug && console.error(error.message);
                         reject(error);
                     } else {
                         //else, resolve temperature converted to fahrenheit
