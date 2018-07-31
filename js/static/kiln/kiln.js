@@ -101,11 +101,11 @@ class Kiln{
 
             // Update 1 hour temp log
 
-            if (this.tempLog.length === 0){ // ran immediately to make sure there is a starting temp
-                this.getTemp().then((temp)=>{
-                    this.tempLog = [temp]
-                }).catch(()=>{})
-            }
+             // ran immediately to make sure there is a starting temp
+            this.getTemp().then((temp)=>{
+                this.tempLog = [temp]
+                this.fsLog = [temp]
+            }).catch(()=>{})
 
             this.tempLogInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
@@ -122,7 +122,6 @@ class Kiln{
                     // debug log on device
 
                     if (this.debug){
-                        this.fsLog = []
                         this.fsLog.push(temp)
                         let self = this
                         let writeFsLog = ()=>{
