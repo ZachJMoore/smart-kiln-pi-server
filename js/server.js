@@ -19,7 +19,7 @@ let generateUUID = () => { // Public Domain/MIT
 }
 
 let requestTunnel = (random = true)=>{
-    return socketTunnel.connect("https://proxy.zachjmoore.com", `${random ? generateUUID() : config.uuid}`, port)
+    return socketTunnel.connect("https://smartkiln.xyz", `${random ? generateUUID() : config.uuid}`, port)
 }
 
 waitForLogin().then(()=>{
