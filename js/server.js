@@ -1,5 +1,4 @@
 const app = require("./app");
-const localtunnel = require('localtunnel');
 const port = 2222;
 const userDB = require("./static/firebase/firebaseDB");
 const waitForLogin = require("./static/firebase/firebaseUserManager");

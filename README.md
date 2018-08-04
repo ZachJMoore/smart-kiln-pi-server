@@ -32,8 +32,18 @@ in the root directory run in terminal the following to start the server
     $node js/server.js
 ```
 
+In order to be able to run the server you will also need to go through the process of installing node and any other dependencies.
+Or you can run it in a docker container with the following.
+
+```
+    $ curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
+    $ usermod -a -G docker
+    $ docker build -t smart-kiln .
+    $ docker run -d -p 2222:2222 --restart=always --privileged --name sk-server smart-kiln
+```
+
 ~~At the moment, this will only let you be able to check temperature from the web interface. Currently selecting a schedule and pressing start will only console log the recieved schedule. I have commented out the PID portion as it is not ready yet and needs more work.~~
 
-The kiln object is now a class and has propper intergration for firing a schedule. Very little error handling has been added, but the ability to fire a schedule completely from the web interface is now supported.
+The kiln object is now a class and has proper integration for firing a schedule. Very little error handling has been added, but the ability to fire a schedule completely from the web interface is now supported.
 
 Help is very welcome, please feel free to make a pull request!
