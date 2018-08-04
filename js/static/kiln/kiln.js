@@ -1,4 +1,4 @@
-const max31855 = require('max31855');
+const max31855 = require('../../max31855');
 const Gpio = require('onoff').Gpio;
 const relayOne = new Gpio(27, 'out');
 const thermoSensor = new max31855();
