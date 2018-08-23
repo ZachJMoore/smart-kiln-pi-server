@@ -8,6 +8,14 @@ waitForLogin().then(user => {
 
 //verify
 let authVerify = (req, res, next)=>{
+
+    var ip = req.connection.remoteAddress;
+    
+    if (ip === "127.0.0.1" || ip === "::ffff:127.0.0.1" || ip === "::1"){
+        next()
+        return
+    }
+
     authorization = req.headers["x-access-token"]
     if (!authorization) return res.status(403).send({error: true, message: "no authorization provided"})
 
@@ -18,6 +26,7 @@ let authVerify = (req, res, next)=>{
     } else if (authUser.uid === authorization){
         req.userId = authorization;
         next()
+        return
     }
 };
 
