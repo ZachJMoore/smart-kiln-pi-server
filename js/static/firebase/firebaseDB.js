@@ -1,6 +1,6 @@
 const fb = require("./firebase");
 const firebaseDB = fb.firebaseDB;
-const config = require("../config");
+const config = require("../../../config");
 const waitForLogin = require("./firebaseUserManager");
 
 //sign into firebase

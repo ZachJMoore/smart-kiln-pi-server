@@ -1,7 +1,7 @@
 const firebaseAuth = require("./firebaseAuth");
 const fb = require("./firebase");
 const firebase = fb.firebase;
-const config = require("../config");
+const config = require("../../../config");
 const loginInfo = config.user;
 
 //sign into firebase

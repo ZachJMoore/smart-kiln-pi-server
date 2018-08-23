@@ -4,5 +4,5 @@
         "password": "YourPasswordToLogin"
     },
     "uuid": "GenerateAUUIDForEachKiln",
-    "name": "NameOfKiln(Ember!)"
+    "name": "NameOfKiln"
 }

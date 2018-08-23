@@ -5,6 +5,9 @@ const thermoSensor = new max31855();
 const userDB = require("../firebase/firebaseDB")
 const fs = require("fs")
 
+ROOT_APP_PATH = fs.realpathSync('.'); 
+console.log(ROOT_APP_PATH);
+
 class PID{
     constructor(startingTemp, targetKiln, debug = false){
         this.target = startingTemp;
@@ -69,6 +72,7 @@ class Kiln{
         this.tempLog = []
         this.controller = null;
         this.relays = relays;
+        this.startupDate = Date.now()
         this.debug = debug
 
         this.init = ()=>{
@@ -83,25 +87,8 @@ class Kiln{
 
             this.controller = new PID(this.temp, this, this.debug)
 
-            // Keep a log of the past 12 hours
-
-            this.persistentTempLog = []
-            this.persistentTempLogInterval = setInterval(()=>{
-                self.getTemp().then((temp)=>{
-                    //if its not 12 hours worth of time keep adding to it
-                    if (self.persistentTempLog.length < 72){
-                        self.persistentTempLog.unshift(temp)
-                    } else { //otherwise update the database and start over
-                        userDB.updatePersistentLog(self.persistentTempLog)
-                        console.log(new Date() + ": persistent temp log uploaded to database")
-                        self.persistentTempLog = []
-                    }
-                }).catch(()=>{})
-            }, 600000)
-
-            // Update 1 hour temp log
-
              // ran immediately to make sure there is a starting temp
+
             this.getTemp().then((temp)=>{
                 this.tempLog = [temp]
                 this.fsLog = [temp]
@@ -123,34 +110,31 @@ class Kiln{
 
                     if (this.debug){
                         this.fsLog.push(temp)
-                        let self = this
                         let writeFsLog = ()=>{
-                            fs.writeFile("fsLog.json", JSON.stringify(self.fsLog), function(err) {
+                            fs.writeFile(`logs/temperature/${self.startupDate}.json`, JSON.stringify(self.fsLog), function(err) {
                                 if(err) {
                                     return console.log(err);
                                 }
                             });
                         }
                         writeFsLog()
-                        this.fsLogInterval = setInterval(writeFsLog,60000)
+                        this.fsLogInterval = setInterval(writeFsLog, 60000)
                     }
 
                 }).catch(()=>{})
             }, 300000)
 
             // continually update the temperature
+            this.getTemp().then(temp=>{
+                this.tempAverage.push(temp)
+                this.tempAverage.shift()
+                let average = 0;
+                this.tempAverage.forEach(t=>{
+                    average += t
+                })
+                this.temp = parseFloat((average / this.tempAverage.length).toFixed(2))
+            }).catch(()=>{})
 
-            if (this.temp === 0){
-                this.getTemp().then(temp=>{
-                    this.tempAverage.push(temp)
-                    this.tempAverage.shift()
-                    let average = 0;
-                    this.tempAverage.forEach(t=>{
-                        average += t
-                    })
-                    this.temp = parseFloat((average / this.tempAverage.length).toFixed(2))
-                }).catch(()=>{})
-            }
             this.tempStateInterval = setInterval(()=>{
                 self.getTemp().then(temp=>{
                     self.tempAverage.push(temp)
@@ -164,6 +148,7 @@ class Kiln{
             }, 1000)
 
         }
+
 
         this.getTemp = ()=>{
             return new Promise((resolve, reject) => {
