@@ -12,18 +12,25 @@ let requestTunnel = (random = true)=>{
 
 const server = app.listen(port, console.log(new Date() + ": server running on port: " + port));
 
-
+let hasLoggedIn = false
 waitForLogin().then(()=>{
-    requestTunnel()
-        .then((url)=>{
-            console.log(url)
-            userDB.updateKiln(url)
-        })
-        .catch((response)=>{
-            if (response === null ) return
-            console.log(response.error)
-            if (response.url !== undefined){
-                userDB.updateKiln(response.url)
-            }
-        })
+
+    if (!hasLoggedIn){
+        requestTunnel()
+            .then((url)=>{
+                console.log(url)
+                userDB.updateKiln(url)
+            })
+            .catch((response)=>{
+                response = JSON.parse(response)
+                if (response === null ) return
+                console.log(response.error)
+                if (response.url !== undefined){
+                    userDB.updateKiln(response.url)
+                }
+            })
+    }
+
+    hasLoggedIn = true
+
 })
