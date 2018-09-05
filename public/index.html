@@ -1,0 +1,30 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Smart Kiln</title>
+</head>
+<body>
+    <h1 id="temp">0</h1>
+    <script>
+        let tempText = document.getElementById("temp")
+
+        let updateTempText = (temp)=>{
+            tempText.textContent = temp
+        }
+
+        let updateTemp = ()=>{
+            fetch("http://localhost:2222/api/kiln/get-temp")
+            .then(data => data.json())
+            .then((object)=>{
+                updateTempText(object.temp)
+            })
+        }
+
+        updateTemp()
+
+        setInterval(updateTemp, 30000)
+    </script>
+</body>
+</html>
