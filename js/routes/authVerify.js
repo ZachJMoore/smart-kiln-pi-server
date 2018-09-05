@@ -10,8 +10,9 @@ waitForLogin().then(user => {
 let authVerify = (req, res, next)=>{
 
     var ip = req.connection.remoteAddress;
+    console.log(ip)
     
-    if (ip === "::1"){
+    if (ip === "::1" || ip === "::ffff:172.17.0.1"){
         next()
         return
     }
