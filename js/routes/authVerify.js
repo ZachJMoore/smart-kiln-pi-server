@@ -11,7 +11,7 @@ let authVerify = (req, res, next)=>{
 
     var ip = req.connection.remoteAddress;
     
-    if (ip === "127.0.0.1" || ip === "::ffff:127.0.0.1" || ip === "::1"){
+    if (ip === "::1"){
         next()
         return
     }
