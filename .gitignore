@@ -2,7 +2,6 @@
 
 # dependencies
 /node_modules
-/js/static/firebase/firebase.js
 /config.json
 
 
