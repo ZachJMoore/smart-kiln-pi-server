@@ -1,6 +1,8 @@
+This repository is now archived and is no longer maintained. This project has been superseded by https://github.com/ZachJMoore/smart-kiln-hardware
+
 ## Smart Kiln (Pi server)
 
-This is the Pi server fro the "Smart Kiln" project.
+This is the Pi server for the "Smart Kiln" project.
 
 ## Hardware Setup
 
